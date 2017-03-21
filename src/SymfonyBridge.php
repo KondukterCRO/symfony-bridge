@@ -6,9 +6,11 @@
  * (c) Ivan Veštić
  * http://ivanvestic.com
  *
- * Date: 21/03/2017
- * Time: 01:47
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
+
+namespace Core\Framework\Symfony;
 
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,10 +21,6 @@ use Symfony\Component\HttpFoundation\Request;
  */
 class SymfonyBridge
 {
-
-    /** __construct call count */
-    private static $__c = 0;
-
     /** @var SymfonyBridge $instance */
     private static $instance;
 
@@ -35,16 +33,10 @@ class SymfonyBridge
 
     /**
      * SymfonyBridge constructor.
-     * @param ContainerInterface $container
      */
-    public function __construct(ContainerInterface $container)
+    private function __construct()
     {
-        // Singleton
-        if (self::$__c++ > 0) {
-            return;
-        }
-
-        self::$container = $container;
+        // nothing to do here
     }
 
     /**
@@ -56,7 +48,7 @@ class SymfonyBridge
     final public static function getInstance(string $_env = null, bool $_debug = false)
     {
         // Singleton
-        if (null != self::$instance) {
+        if (null !== self::$instance) {
             return self::$instance;
         }
 
@@ -69,13 +61,30 @@ class SymfonyBridge
             return null;
         }
 
+        // instantiate kernel
         $kernel = new \AppKernel($env, $debug);
+        if ('prod' == $env) {
+            $kernel->loadClassCache();
+        }
+        // create the Request object
         $request = Request::createFromGlobals();
-        $kernel->handle($request);
-        $kernel->boot();
 
-        // store self instance into a static self::$instance
-        self::$instance = new self($kernel->getContainer());
+        // boot the kernel
+        // handle (push, process, pop) the request, and return Response
+        $kernel->handle($request);
+
+        // at this point the RequestStack->requests is empty
+        // push a copy of the Request to the RequestStack, so it can be accessed later
+        $kernel->getContainer()->get('request_stack')->push($request);
+
+        // at this point kernel should already be booted
+        //$kernel->boot();
+
+        // save container
+        self::$container = $kernel->getContainer();
+
+        // save SymfonyBridge self instance
+        self::$instance = new self();
 
         return self::$instance;
     }
@@ -83,7 +92,7 @@ class SymfonyBridge
     /**
      * @return Container|ContainerInterface|null
      */
-    final public static function getContainer()
+    final public function getContainer()
     {
         return self::$container;
     }
@@ -91,8 +100,16 @@ class SymfonyBridge
     /**
      * @return object|\Symfony\Component\HttpFoundation\RequestStack
      */
-    final public static function getRequestStack()
+    final public function getRequestStack()
     {
         return self::$container->get('request_stack');
+    }
+
+    /**
+     * @return Request|null
+     */
+    final public function getRequest()
+    {
+        return self::$container->get('request_stack')->getCurrentRequest();
     }
 }
