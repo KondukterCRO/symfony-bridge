@@ -10,8 +10,6 @@
  * file that was distributed with this source code.
  */
 
-namespace Core\Framework\Symfony;
-
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 class SymfonyBridge
 {
     /** @var SymfonyBridge $instance */
-    private static $instance;
+    protected static $instance;
 
     /** @var Container $container */
     private static $container;
@@ -63,28 +61,21 @@ class SymfonyBridge
 
         // instantiate kernel
         $kernel = new \AppKernel($env, $debug);
-        if ('prod' == $env) {
-            $kernel->loadClassCache();
-        }
+        // boot the kernel
+        $kernel->boot();
+
         // create the Request object
         $request = Request::createFromGlobals();
-
-        // boot the kernel
-        // handle (push, process, pop) the request, and return Response
-        $kernel->handle($request);
 
         // at this point the RequestStack->requests is empty
         // push a copy of the Request to the RequestStack, so it can be accessed later
         $kernel->getContainer()->get('request_stack')->push($request);
 
-        // at this point kernel should already be booted
-        //$kernel->boot();
-
         // save container
         self::$container = $kernel->getContainer();
 
         // save SymfonyBridge self instance
-        self::$instance = new self();
+        self::$instance = new static();
 
         return self::$instance;
     }
