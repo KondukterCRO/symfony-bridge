@@ -1,0 +1,3 @@
+site_main:
+    path:     /
+    defaults: { _controller: TestBundle:Test:test }
